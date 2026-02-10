@@ -245,12 +245,17 @@ resource "aws_vpc_security_group_ingress_rule" "obsidian_rds_sg_ingress_mysql" {
 
 # Explanation: RDS hides in private subnets like the Rebel base on Hoth—cold, quiet, and not public.
 resource "aws_db_subnet_group" "obsidian_rds_subnet_group01" {
-  name       = "${local.name_prefix}-rds-subnet-group01"
-  subnet_ids = aws_subnet.obsidian_private_subnets[*].id
+  name        = "${var.project_name}-rds-subnet-group-${random_id.suffix.hex}"
+  description = "Subnet group for Obsidian RDS instance"
+  subnet_ids  = aws_subnet.obsidian_private_subnets[*].id
 
   tags = {
     Name = "${local.name_prefix}-rds-subnet-group01"
   }
+}
+
+resource "random_id" "suffix" {
+  byte_length = 2
 }
 
 ############################################

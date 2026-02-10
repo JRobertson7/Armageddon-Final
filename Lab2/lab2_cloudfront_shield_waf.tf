@@ -1,4 +1,6 @@
 resource "aws_wafv2_web_acl" "obsidian_cf_waf01" {
+  provider = aws.use1
+
   name  = "${var.project_name}-cf-waf01"
   scope = "CLOUDFRONT"
 
@@ -15,7 +17,6 @@ resource "aws_wafv2_web_acl" "obsidian_cf_waf01" {
   rule {
     name     = "AWSManagedRulesCommonRuleSet"
     priority = 1
-
     override_action {
       none {}
     }
@@ -37,7 +38,6 @@ resource "aws_wafv2_web_acl" "obsidian_cf_waf01" {
   rule {
     name     = "AWSManagedRulesKnownBadInputsRuleSet"
     priority = 2
-
     override_action {
       none {}
     }

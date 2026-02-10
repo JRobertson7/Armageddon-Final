@@ -102,7 +102,7 @@ resource "aws_lb_listener" "obsidian_https_listener01" {
   port              = 443
   protocol          = "HTTPS"
   ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"
-  #   certificate_arn   = aws_acm_certificate.obsidian_cert01.arn
+  certificate_arn   = data.aws_acm_certificate.alb_regional_cert.arn
 
   default_action {
     type = "fixed-response"
@@ -112,8 +112,6 @@ resource "aws_lb_listener" "obsidian_https_listener01" {
       status_code  = "403"
     }
   }
-
-  #   depends_on = [aws_acm_certificate_validation.obsidian_cert_validation01]
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -128,11 +126,6 @@ output "obsidian_alb_dns_name01" {
 output "obsidian_alb_arn01" {
   description = "ARN of the load balancer"
   value       = aws_lb.obsidian_alb01.arn
-}
-
-output "obsidian_target_group_arn01" {
-  description = "ARN of the target group"
-  value       = aws_lb_target_group.obsidian_tg01.arn
 }
 
 output "obsidian_http_listener_arn01" {

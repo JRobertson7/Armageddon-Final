@@ -1,4 +1,17 @@
-# Explanation: CloudFront is the only public doorway — Obsidian stands behind it with private infrastructure.
+############################################
+# Lab 2 + Lab 2B: CloudFront in front of ALB
+# - Default behavior: API-safe (caching disabled)
+# - /static/*: aggressive caching
+# - /api/public-feed: honors origin-driven caching (managed policy)
+############################################
+
+# Honors: managed origin-driven caching policy
+# NOTE: Use the plain name (no "Managed-" prefix) for these newer policies.
+# This aligns with AWS naming and avoids common lookup mismatches in tooling. :contentReference[oaicite:4]{index=4}
+data "aws_cloudfront_cache_policy" "use_origin_cache_control_headers" {
+  name = "UseOriginCacheControlHeaders"
+}
+
 resource "aws_cloudfront_distribution" "obsidian_cf01" {
   enabled         = true
   is_ipv6_enabled = true
@@ -15,13 +28,16 @@ resource "aws_cloudfront_distribution" "obsidian_cf01" {
       origin_ssl_protocols   = ["TLSv1.2"]
     }
 
-    # Explanation: CloudFront whispers the secret growl — the ALB only trusts this.
+    # Secret origin header (ALB listener rule requires this)
     custom_header {
       name  = "X-Obsidian-Growl"
       value = random_password.obsidian_origin_header_value01.result
     }
   }
 
+  ############################################
+  # Default behavior = API-safe default (no caching)
+  ############################################
   default_cache_behavior {
     target_origin_id       = "${var.project_name}-alb-origin01"
     viewer_protocol_policy = "redirect-to-https"
@@ -29,41 +45,87 @@ resource "aws_cloudfront_distribution" "obsidian_cf01" {
     allowed_methods = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
     cached_methods  = ["GET", "HEAD"]
 
-    # TODO: students choose cache policy / origin request policy for their app type
-    # For APIs, typically forward all headers/cookies/querystrings.
-    forwarded_values {
-      query_string = true
-      headers      = ["*"]
-      cookies { forward = "all" }
-    }
+    cache_policy_id          = aws_cloudfront_cache_policy.obsidian_cache_api_disabled01.id
+    origin_request_policy_id = aws_cloudfront_origin_request_policy.obsidian_orp_api01.id
+
+    compress = true
   }
 
-  # Explanation: Attach WAF at the edge — now WAF moved to CloudFront.
+  ############################################
+  # Honors behavior: /api/public-feed (origin-driven caching)
+  # CloudFront caches ONLY when origin returns Cache-Control that allows it. :contentReference[oaicite:5]{index=5}
+  ############################################
+  ordered_cache_behavior {
+    path_pattern           = "/api/public-feed"
+    target_origin_id       = "${var.project_name}-alb-origin01"
+    viewer_protocol_policy = "redirect-to-https"
+
+    allowed_methods = ["GET", "HEAD", "OPTIONS"]
+    cached_methods  = ["GET", "HEAD"]
+
+    cache_policy_id          = data.aws_cloudfront_cache_policy.use_origin_cache_control_headers.id
+    origin_request_policy_id = aws_cloudfront_origin_request_policy.obsidian_orp_api01.id
+
+    compress = true
+  }
+
+  ############################################
+  # /static/* = aggressive caching
+  ############################################
+  ordered_cache_behavior {
+    path_pattern           = "/static/*"
+    target_origin_id       = "${var.project_name}-alb-origin01"
+    viewer_protocol_policy = "redirect-to-https"
+
+    allowed_methods = ["GET", "HEAD", "OPTIONS"]
+    cached_methods  = ["GET", "HEAD"]
+
+    cache_policy_id            = aws_cloudfront_cache_policy.obsidian_cache_static01.id
+    origin_request_policy_id   = aws_cloudfront_origin_request_policy.obsidian_orp_static01.id
+    response_headers_policy_id = aws_cloudfront_response_headers_policy.obsidian_rsp_static01.id
+
+    compress = true
+  }
+
+  ############################################
+  # WAF at CloudFront edge
+  ############################################
   web_acl_id = aws_wafv2_web_acl.obsidian_cf_waf01.arn
 
-  # TODO: students set aliases for obsidiandevsecops.com and app.obsidiandevsecops.com
-  aliases = [
-    var.domain_name,
-    "${var.app_subdomain}.${var.domain_name}"
-  ]
+  ############################################
+  # Aliases (apex + app subdomain)
+  ############################################
+  # aliases = [
+  #   var.domain_name,
+  #   "${var.app_subdomain}.${var.domain_name}"
+  # ]
 
-  # TODO: students must use ACM cert in us-east-1 for CloudFront
-  viewer_certificate {
-    acm_certificate_arn      = data.aws_acm_certificate.obsidian_existing_cert.arn
-    ssl_support_method       = "sni-only"
-    minimum_protocol_version = "TLSv1.2_2021"
-  }
-
+  ############################################
+  # Geo-restriction (none applied)
+  ############################################
   restrictions {
     geo_restriction {
       restriction_type = "none"
     }
   }
+
+  ############################################
+  # Viewer cert MUST be in us-east-1
+  ############################################
+  viewer_certificate {
+    cloudfront_default_certificate = true
+  }
+
 }
 
+# CloudFront cert lookup (us-east-1)
 data "aws_acm_certificate" "obsidian_existing_cert" {
+  provider    = aws.use1
   domain      = var.domain_name
   statuses    = ["ISSUED"]
   types       = ["AMAZON_ISSUED"]
   most_recent = true
 }
+
+# Removed invalid standalone viewer_certificate block
+

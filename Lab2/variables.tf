@@ -89,11 +89,6 @@ variable "db_password" {
   default     = "bugzy1beez" # TODO: student supplies
 }
 
-variable "acm_cert_arn" {
-  description = "Existing ACM certificate ARN for the app domain"
-  type        = string
-}
-
 variable "manage_route53_in_terraform" {
   description = "If true, create/manage Route53 hosted zone + records in Terraform."
   type        = bool
@@ -123,3 +118,9 @@ variable "app_subdomain" {
   type        = string
   default     = "app"
 }
+
+# variable "acm_cert_arn" {
+#   description = "Existing ACM certificate ARN for the app domain" 
+#   type        = string
+#   default     = "arn:aws:acm:us-east-1:123456789012:certificate/abcdefg-1234-5678-abcd-ef1234567890" # TODO: student supplies
+# }
