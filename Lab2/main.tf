@@ -1,5 +1,5 @@
 ############################################
-# Locals (naming convention: satellite-*)
+# Locals (naming convention: obsidian-*)
 ############################################
 locals {
   name_prefix = var.project_name
@@ -21,7 +21,7 @@ locals {
 # VPC + Internet Gateway
 ############################################
 
-# Explanation: satellite needs a hyperlane—this VPC is the Millennium Falcon’s flight corridor.
+# Explanation: obsidian needs a hyperlane—this VPC is the Millennium Falcon’s flight corridor.
 resource "aws_vpc" "obsidian_vpc01" {
   cidr_block           = var.vpc_cidr
   enable_dns_support   = true
@@ -76,7 +76,7 @@ resource "aws_subnet" "obsidian_private_subnets" {
 # NAT Gateway + EIP
 ############################################
 
-# Explanation: satellite wants the private base to call home—EIP gives the NAT a stable “holonet address.”
+# Explanation: obsidian wants the private base to call home—EIP gives the NAT a stable “holonet address.”
 resource "aws_eip" "_nat_eip01" {
   domain = "vpc"
 
@@ -85,7 +85,7 @@ resource "aws_eip" "_nat_eip01" {
   }
 }
 
-# Explanation: NAT is satellite’s smuggler tunnel—private subnets can reach out without being seen.
+# Explanation: NAT is obsidian’s smuggler tunnel—private subnets can reach out without being seen.
 resource "aws_nat_gateway" "obsidian_nat01" {
   allocation_id = aws_eip._nat_eip01.id
   subnet_id     = aws_subnet.obsidian_public_subnets[0].id # NAT in a public subnet
@@ -133,7 +133,7 @@ resource "aws_route_table" "_private_rt01" {
   }
 }
 
-# Explanation: Private subnets route outbound internet via NAT (satellite-approved stealth).
+# Explanation: Private subnets route outbound internet via NAT (obsidian-approved stealth).
 resource "aws_route" "obsidian_private_default_route" {
   route_table_id         = aws_route_table._private_rt01.id
   destination_cidr_block = "0.0.0.0/0"
@@ -151,7 +151,7 @@ resource "aws_route_table_association" "obsidian_private_rta" {
 # Security Groups (EC2 + RDS)
 ############################################
 
-# Explanation: EC2 SG is satellite’s bodyguard—only let in what you mean to.
+# Explanation: EC2 SG is obsidian’s bodyguard—only let in what you mean to.
 resource "aws_security_group" "obsidian_ec2_sg01" {
   name        = "${local.name_prefix}-ec2-sg01"
   description = "EC2 app security group"
@@ -181,33 +181,33 @@ resource "aws_vpc_security_group_ingress_rule" "obsidian_ec2_sg_ingress_http" {
   cidr_ipv4         = local.all_ip_address
 }
 
-# resource "aws_vpc_security_group_ingress_rule" "satellite_bastion_host_sg_ingress_ssh" {
+# resource "aws_vpc_security_group_ingress_rule" "obsidian_bastion_host_sg_ingress_ssh" {
 #   ip_protocol       = local.tcp_protocol
-#   security_group_id = aws_security_group.satellite_ec2_sg02.id
+#   security_group_id = aws_security_group.obsidian_ec2_sg02.id
 #   from_port         = local.ports_ssh
 #   to_port           = local.ports_ssh
 #   cidr_ipv4         = var.my_ip_cidr
 # }
-# resource "aws_vpc_security_group_ingress_rule" "satellite_ec2_sg_ingress_private_ssh" {
+# resource "aws_vpc_security_group_ingress_rule" "obsidian_ec2_sg_ingress_private_ssh" {
 #   ip_protocol                  = local.tcp_protocol
-#   security_group_id            = aws_security_group.satellite_ec2_sg02.id
+#   security_group_id            = aws_security_group.obsidian_ec2_sg02.id
 #   from_port                    = local.ports_ssh
 #   to_port                      = local.ports_ssh
-#   referenced_security_group_id = aws_security_group.satellite_ec2_sg02.id #allow traffic ONLY from specified SG
+#   referenced_security_group_id = aws_security_group.obsidian_ec2_sg02.id #allow traffic ONLY from specified SG
 # }
 
 
 # Ensures outbound allows DB port to RDS SG (or allow all outbound)
-# Kevin- We should not need http, but keeping it
-# resource "aws_vpc_security_group_egress_rule" "satellite_ec2_sg_egress_http" {
+# Jay- We should not need http, but keeping it
+# resource "aws_vpc_security_group_egress_rule" "obsidian_ec2_sg_egress_http" {
 #   ip_protocol       = local.tcp_protocol
-#   security_group_id = aws_security_group.satellite_ec2_sg01.id
+#   security_group_id = aws_security_group.obsidian_ec2_sg01.id
 #   from_port         = local.ports_http
 #   to_port           = local.ports_http
 #   cidr_ipv4         = local.all_ip_address
 # }
 
-#Kevin- My working click ops environment
+#Jay- My working click ops environment
 # Fixed: When using all_protocol (-1), AWS requires from_port and to_port to be -1 (not 0)
 resource "aws_vpc_security_group_egress_rule" "obsidian_ec2_sg_egress_db" {
   ip_protocol       = local.all_protocol
@@ -295,7 +295,7 @@ resource "aws_db_instance" "obsidian_rds01" {
 # IAM Role + Instance Profile for EC2
 ############################################
 
-# Explanation: satellite refuses to carry static keys—this role lets EC2 assume permissions safely.
+# Explanation: obsidian refuses to carry static keys—this role lets EC2 assume permissions safely.
 resource "aws_iam_role" "obsidian_ec2_role01" {
   name = "${local.name_prefix}-ec2-role01"
 
@@ -399,7 +399,7 @@ resource "aws_instance" "obsidian_bastion_host_ec2_02" {
 
   # TODO: student supplies user_data to install app + CW agent + configure log shipping
   // user_data  = file("${path.module}/1a_user_data.sh")
-  # depends_on = [aws_db_instance.satellite_rds01]
+  # depends_on = [aws_db_instance.obsidian_rds01]
 
   tags = {
     Name = "${local.name_prefix}-bastion-host"
@@ -433,7 +433,7 @@ resource "aws_instance" "obsidian_ec2_03" {
   key_name                    = var.key_name
   # TODO: student supplies user_data to install app + CW agent + configure log shipping
   #user_data  = file("${path.module}/1a_user_data.sh")
-  # depends_on = [aws_db_instance.satellite_rds01]
+  # depends_on = [aws_db_instance.obsidian_rds01]
 
   tags = {
     Name = "${local.name_prefix}-ec2_03"
@@ -531,7 +531,7 @@ resource "aws_secretsmanager_secret_version" "obsidian_db_secret_version01" {
 # Custom Metric + Alarm (Skeleton)
 ############################################
 
-# Explanation: Metrics are satellite’s growls—when they spike, something is wrong.
+# Explanation: Metrics are obsidian’s growls—when they spike, something is wrong.
 # NOTE: Students must emit the metric from app/agent; this just declares the alarm.
 resource "aws_cloudwatch_metric_alarm" "obsidian_db_alarm01" {
   alarm_name          = "${local.name_prefix}-db-connection-failure"
@@ -572,4 +572,4 @@ resource "aws_sns_topic_subscription" "obsidian_sns_sub01" {
 
 # Explanation: Endpoints keep traffic inside AWS like hyperspace lanes—less exposure, more control.
 # TODO: students can add endpoints for SSM, Logs, Secrets Manager if doing “no public egress” variant.
-# resource "aws_vpc_endpoint" "satellite_vpce_ssm" { ... }
+# resource "aws_vpc_endpoint" "obsidian_vpce_ssm" { ... }
