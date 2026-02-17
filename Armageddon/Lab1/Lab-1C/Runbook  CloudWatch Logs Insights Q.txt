@@ -1,0 +1,116 @@
+Runbook / CloudWatch Logs Insights Queries (Obsidan Version)
+
+WAF log group: aws-waf-logs-obsidian-webacl01
+App log group: /aws/ec2/obsidian-rds-app
+
+Time range: Last 15 minutes (or match incident window)
+
+
+WAF Queries (Attack / Traffic Analysis)
+(aws-waf-logs-<project>-webacl01)
+
+A1) What’s happening right now? (ALLOW vs BLOCK)
+
+fields @timestamp, action
+| stats count() as hits by action
+| sort hits desc
+
+The logs show that AWS WAF processed a total of 14 requests during the 15-minute period from 05:07:39 UTC to 05:22:39 UTC on February 9, 2026. All 14 requests were handled with ALLOW actions, indicating that no requests were blocked, challenged, or subjected to other WAF rule actions. The traffic volume was relatively low with an average of less than one request per minute. No BLOCK, COUNT, or CAPTCHA actions were recorded during this timeframe. The uniform action type across all requests indicates that incoming traffic either matched allow-list rules or did not trigger any blocking conditions in the WAF configuration.
+
+
+A2) Top client IPs
+
+fields @timestamp, httpRequest.clientIp as clientIp
+| stats count() as hits by clientIp
+| sort hits desc
+| limit 25
+
+The logs show traffic from 7 distinct client IP addresses generating a total of 15 hits during the 15-minute observation period. Two IP addresses, 172.71.184.35 and 3.88.151.127, generated the highest activity with 3 hits each, representing 40% of total traffic. Three IP addresses (172.70.248.32, 136.0.108.69, 204.76.203.206, and 204.76.203.219) each contributed 2 hits, accounting for another 53% of traffic. One IP address, 172.68.10.183, generated a single hit. The traffic distribution shows a relatively even spread across the top sources, with no single IP dominating the request volume. The IP addresses span different network ranges, indicating geographically or organizationally diverse sources.
+
+A3) Top requested URIs
+
+fields @timestamp, httpRequest.uri as uri
+| stats count() as hits by uri
+| sort hits desc
+| limit 25
+
+The logs show that during the 15-minute period from 05:08:35 UTC to 05:23:35 UTC on February 9, 2026, a total of 16 requests were captured across 7 distinct URIs. The root path received the highest traffic with 6 hits, representing over one-third of all requests. WordPress administrative setup configuration paths were targeted multiple times, with both the standard wp-admin setup-config.php path and the wordpress subdirectory variant each receiving 3 hits. Several other paths received single hits each, including attempts to access environment configuration files, API endpoints, index.php, and admin directories. The traffic pattern indicates a mix of legitimate root path access and reconnaissance attempts targeting common web application vulnerabilities and administrative interfaces.
+
+A4) Blocked requests only
+
+fields @timestamp, action, httpRequest.clientIp as clientIp, httpRequest.uri as uri
+| filter action = "BLOCK"
+| stats count() as blocks by clientIp, uri
+| sort blocks desc
+| limit 25
+
+The logs show only one blocked request during the analyzed time period from February 9, 2026, between 05:58:32 UTC and 06:13:32 UTC. The single blocked request originated from IP address 20.163.33.22 attempting to access the /actuator/health endpoint. This endpoint is typically used for application health monitoring in Spring Boot applications. The blocking activity represents minimal WAF enforcement during this 15-minute window, with no repeated blocking patterns or multiple IP addresses being affected. The total blocking count across all client IPs and URIs was just one occurrence.
+
+A5) Which WAF rule is blocking?
+
+fields @timestamp, action, terminatingRuleId, terminatingRuleType
+| filter action = "BLOCK"
+| stats count() as blocks by terminatingRuleId, terminatingRuleType
+| sort blocks desc
+| limit 25
+
+The logs show that during the 15-minute period from 06:01:43 UTC to 06:16:43 UTC on February 9, 2026, AWS WAF recorded only one blocked request. The single block was triggered by the AWSManagedRulesCommonRuleSet, which is a managed rule group provided by AWS. This represents extremely low blocking activity for a WAF deployment, with no other rules contributing to any blocks during this timeframe. The AWSManagedRulesCommonRuleSet is designed to protect against common web application vulnerabilities and attacks. The minimal blocking activity indicates either very low traffic volume or clean traffic with few malicious requests during this specific time period.
+
+A6 / A7) Suspicious scanners (fixed regex version)
+
+fields @timestamp, httpRequest.clientIp as clientIp, httpRequest.uri as uri
+| filter uri =~ /wp-login|xmlrpc|\.env|admin|phpmyadmin|\.git|login/
+| stats count() as hits by clientIp, uri
+| sort hits desc
+| limit 50
+
+The logs show 8 security-related requests from 5 unique client IP addresses targeting sensitive endpoints during the 15-minute time window. WordPress admin setup configuration files were the primary target, accounting for 6 of the 8 total requests across three different client IPs, with 172.71.184.35 being the most active source generating 3 hits to the WordPress setup path. Two additional attack vectors were observed: one client attempted to access environment configuration files and another targeted a generic admin endpoint. The distribution shows concentrated activity from specific IP addresses rather than widespread scanning, with the top three IPs all focusing exclusively on WordPress administrative interfaces.
+
+
+App Queries (Is the app broken?)
+(/aws/ec2/<project>-rds-app)
+
+B1) Error count over time (THIS is your timeline)
+
+filter @message like /(?i)error/ 
+| stats count(*) as errorCount by bin(5m) 
+| sort @timestamp desc
+
+
+B2) Most recent DB failures
+
+fields @timestamp, @message 
+| filter @message like /(?i)DB/ and @message like /(?i)fail/ 
+| sort @timestamp desc 
+| limit 25
+
+
+
+B3) Creds vs Network classifier (very enterprise)
+
+fields @timestamp, @message
+| filter @message like /Access denied|authentication failed|timeout|refused|no route|could not connect/i
+| stats count() as hits by
+  case(
+    @message like /Access denied|authentication failed/i, "Creds/Auth",
+    @message like /timeout|no route/i, "Network/Route",
+    @message like /refused/i, "Port/SG/ServiceRefused",
+    "Other"
+  )
+| sort hits desc
+
+
+
+B4) Structured JSON logs (future maturity)
+
+fields @timestamp, level, event, reason
+| filter level="ERROR"
+| stats count() as n by event, reason
+| sort n desc
+
+
+
+
+
+
+

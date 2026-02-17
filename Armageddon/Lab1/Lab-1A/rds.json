@@ -1,0 +1,135 @@
+{
+    "DBInstances": [
+        {
+            "DBInstanceIdentifier": "jr-lab-mysql",
+            "DBInstanceClass": "db.t4g.micro",
+            "Engine": "mysql",
+            "DBInstanceStatus": "available",
+            "MasterUsername": "admin",
+            "Endpoint": {
+                "Address": "jr-lab-mysql.cwh6yoyeihx9.us-east-1.rds.amazonaws.com",
+                "Port": 3306,
+                "HostedZoneId": "Z2R2ITUGPM61AM"
+            },
+            "AllocatedStorage": 20,
+            "InstanceCreateTime": "2026-01-25T05:09:33.763000+00:00",
+            "PreferredBackupWindow": "06:14-06:44",
+            "BackupRetentionPeriod": 1,
+            "DBSecurityGroups": [],
+            "VpcSecurityGroups": [
+                {
+                    "VpcSecurityGroupId": "sg-028c2bee59869c69f",
+                    "Status": "active"
+                }
+            ],
+            "DBParameterGroups": [
+                {
+                    "DBParameterGroupName": "default.mysql8.4",
+                    "ParameterApplyStatus": "in-sync"
+                }
+            ],
+            "AvailabilityZone": "us-east-1f",
+            "DBSubnetGroup": {
+                "DBSubnetGroupName": "default-vpc-0ed86053d1c90c017",
+                "DBSubnetGroupDescription": "Created from the RDS Management Console",
+                "VpcId": "vpc-0ed86053d1c90c017",
+                "SubnetGroupStatus": "Complete",
+                "Subnets": [
+                    {
+                        "SubnetIdentifier": "subnet-0331b525ededfa61c",
+                        "SubnetAvailabilityZone": {
+                            "Name": "us-east-1e"
+                        },
+                        "SubnetOutpost": {},
+                        "SubnetStatus": "Active"
+                    },
+                    {
+                        "SubnetIdentifier": "subnet-0cace1042a7e23768",
+                        "SubnetAvailabilityZone": {
+                            "Name": "us-east-1d"
+                        },
+                        "SubnetOutpost": {},
+                        "SubnetStatus": "Active"
+                    },
+                    {
+                        "SubnetIdentifier": "subnet-00ce0af067aefd418",
+                        "SubnetAvailabilityZone": {
+                            "Name": "us-east-1b"
+                        },
+                        "SubnetOutpost": {},
+                        "SubnetStatus": "Active"
+                    },
+                    {
+                        "SubnetIdentifier": "subnet-05f69f32d59b9efa2",
+                        "SubnetAvailabilityZone": {
+                            "Name": "us-east-1f"
+                        },
+                        "SubnetOutpost": {},
+                        "SubnetStatus": "Active"
+                    },
+                    {
+                        "SubnetIdentifier": "subnet-0fda7d0799421f559",
+                        "SubnetAvailabilityZone": {
+                            "Name": "us-east-1a"
+                        },
+                        "SubnetOutpost": {},
+                        "SubnetStatus": "Active"
+                    },
+                    {
+                        "SubnetIdentifier": "subnet-0b3e8bb74aea3272a",
+                        "SubnetAvailabilityZone": {
+                            "Name": "us-east-1c"
+                        },
+                        "SubnetOutpost": {},
+                        "SubnetStatus": "Active"
+                    }
+                ]
+            },
+            "PreferredMaintenanceWindow": "sat:07:20-sat:07:50",
+            "UpgradeRolloutOrder": "second",
+            "PendingModifiedValues": {},
+            "LatestRestorableTime": "2026-01-26T01:30:00+00:00",
+            "MultiAZ": false,
+            "EngineVersion": "8.4.7",
+            "AutoMinorVersionUpgrade": true,
+            "ReadReplicaDBInstanceIdentifiers": [],
+            "LicenseModel": "general-public-license",
+            "StorageThroughput": 0,
+            "OptionGroupMemberships": [
+                {
+                    "OptionGroupName": "default:mysql-8-4",
+                    "Status": "in-sync"
+                }
+            ],
+            "PubliclyAccessible": false,
+            "StorageType": "gp2",
+            "DbInstancePort": 0,
+            "StorageEncrypted": true,
+            "KmsKeyId": "arn:aws:kms:us-east-1:385109576397:key/ba8763fa-70f3-48da-b78b-f5747dbddd98",
+            "DbiResourceId": "db-IIVKB4TICUAEKSAJMCP3C4GY4A",
+            "CACertificateIdentifier": "rds-ca-rsa2048-g1",
+            "DomainMemberships": [],
+            "CopyTagsToSnapshot": true,
+            "MonitoringInterval": 0,
+            "DBInstanceArn": "arn:aws:rds:us-east-1:385109576397:db:jr-lab-mysql",
+            "IAMDatabaseAuthenticationEnabled": false,
+            "DatabaseInsightsMode": "standard",
+            "PerformanceInsightsEnabled": false,
+            "DeletionProtection": false,
+            "AssociatedRoles": [],
+            "MaxAllocatedStorage": 1000,
+            "TagList": [],
+            "CustomerOwnedIpEnabled": false,
+            "NetworkType": "IPV4",
+            "ActivityStreamStatus": "stopped",
+            "BackupTarget": "region",
+            "CertificateDetails": {
+                "CAIdentifier": "rds-ca-rsa2048-g1",
+                "ValidTill": "2027-01-25T05:08:09+00:00"
+            },
+            "DedicatedLogVolume": false,
+            "IsStorageConfigUpgradeAvailable": false,
+            "EngineLifecycleSupport": "open-source-rds-extended-support-disabled"
+        }
+    ]
+}

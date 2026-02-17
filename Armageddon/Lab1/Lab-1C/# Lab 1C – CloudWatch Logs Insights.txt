@@ -1,0 +1,287 @@
+# Lab 1C – CloudWatch Logs Insights Incident Runbook
+
+## Purpose
+
+This runbook provides a **repeatable incident response workflow** using CloudWatch Logs Insights to quickly determine whether an outage or alarm is caused by:
+
+* External traffic / attack pressure (WAF)
+* Application or backend failure (EC2 / RDS)
+
+It is designed for **Lab 1C Bonus-B / Bonus-F** and mirrors real-world SRE / SOC procedures.
+
+---
+
+## Scope & Assumptions
+
+### Logs Covered
+
+* **AWS WAF logs** (CloudWatch destination)
+* **Application logs** from EC2 instances
+
+### Logs NOT Covered
+
+* ALB access logs (stored in S3)
+
+  * Correlate via CloudWatch metrics (5xx alarms)
+  * Optional future analysis via Athena
+
+---
+
+## Required Inputs (Fill In)
+
+| Item             | Value                                    |
+| ---------------- | ---------------------------------------- |
+| Project / Prefix | `<project>`                              |
+| WAF Log Group    | `aws-waf-logs-<project>-webacl01`        |
+| App Log Group    | `/aws/ec2/<project>-rds-app`             |
+| Time Window      | Last **15 minutes** (or incident window) |
+
+---
+
+## How to Use This Runbook
+
+1. Open **CloudWatch → Logs Insights**
+2. Select **ONE log group at a time**
+3. Set the **time range** to match the alarm
+4. Paste the query exactly as shown
+5. Interpret results using the guidance below
+
+---
+
+# Section A — WAF (External Traffic / Attack Analysis)
+
+**Log Group:** `aws-waf-logs-<project>-webacl01`
+
+---
+
+## A1 — Current Traffic Actions (ALLOW vs BLOCK)
+
+```sql
+fields @timestamp, action
+| stats count() as hits by action
+| sort hits desc
+```
+
+**Why:** Determine whether WAF is actively blocking traffic.
+
+---
+
+## A2 — Top Client IPs
+
+```sql
+fields @timestamp, httpRequest.clientIp as clientIp
+| stats count() as hits by clientIp
+| sort hits desc
+| limit 25
+```
+
+**Why:** Identify heavy hitters or scanners.
+
+---
+
+## A3 — Top Requested URIs
+
+```sql
+fields @timestamp, httpRequest.uri as uri
+| stats count() as hits by uri
+| sort hits desc
+| limit 25
+```
+
+**Why:** See what attackers or users are attempting to access.
+
+---
+
+## A4 — Blocked Requests Only
+
+```sql
+fields @timestamp, action, httpRequest.clientIp as clientIp, httpRequest.uri as uri
+| filter action = "BLOCK"
+| stats count() as blocks by clientIp, uri
+| sort blocks desc
+| limit 25
+```
+
+**Why:** Understand exactly what WAF is protecting you from.
+
+---
+
+## A5 — Blocking WAF Rules
+
+```sql
+fields @timestamp, action, terminatingRuleId, terminatingRuleType
+| filter action = "BLOCK"
+| stats count() as blocks by terminatingRuleId, terminatingRuleType
+| sort blocks desc
+| limit 25
+```
+
+**Why:** Identify which managed or custom rules are triggering.
+
+---
+
+## A6 / A7 — Suspicious Scanner Activity
+
+```sql
+fields @timestamp, httpRequest.clientIp as clientIp, httpRequest.uri as uri
+| filter uri =~ /wp-login|xmlrpc|\.env|admin|phpmyadmin|\.git|login/
+| stats count() as hits by clientIp, uri
+| sort hits desc
+| limit 50
+```
+
+**Why:** Detect common automated attack patterns.
+
+---
+
+## A8 — Country / Geo Distribution (If Present)
+
+```sql
+fields @timestamp, httpRequest.country as country
+| stats count() as hits by country
+| sort hits desc
+| limit 25
+```
+
+**Why:** Identify geographic attack concentration.
+
+---
+
+# Section B — Application Logs (Backend Health)
+
+**Log Group:** `/aws/ec2/<project>-rds-app`
+
+---
+
+## B1 — Error Rate Over Time
+
+```sql
+fields @timestamp, @message
+| filter @message like /ERROR|Exception|Traceback|DB|timeout|refused/i
+| stats count() as errors by bin(1m)
+| sort bin(1m) asc
+```
+
+**Why:** Establish the exact failure window.
+
+---
+
+## B2 — Recent Database Failures
+
+```sql
+fields @timestamp, @message
+| filter @message like /DB|mysql|timeout|refused|Access denied|could not connect/i
+| sort @timestamp desc
+| limit 50
+```
+
+**Why:** Triage DB connectivity and auth issues.
+
+---
+
+## B3 — Failure Classification (Creds vs Network)
+
+```sql
+fields @timestamp, @message
+| filter @message like /Access denied|authentication failed|timeout|refused|no route|could not connect/i
+| stats count() as hits by
+  case(
+    @message like /Access denied|authentication failed/i, "Creds/Auth",
+    @message like /timeout|no route/i, "Network/Route",
+    @message like /refused/i, "Port/SG/ServiceRefused",
+    "Other"
+  )
+| sort hits desc
+```
+
+**Why:** Quickly determine root cause category.
+
+---
+
+## B4 — Structured JSON Errors (Optional)
+
+```sql
+fields @timestamp, level, event, reason
+| filter level="ERROR"
+| stats count() as n by event, reason
+| sort n desc
+```
+
+**Requires:** Application emits JSON logs.
+
+---
+
+# Section C — Incident Correlation Workflow
+
+## Step 1 — Confirm Timing
+
+* Check CloudWatch alarm window
+* Run **B1** to confirm error spike
+
+---
+
+## Step 2 — Attack vs Backend
+
+* Run **A1** and **A6**
+* If BLOCKs spike → external pressure
+* If WAF quiet + errors spike → backend issue
+
+---
+
+## Step 3 — Backend Triage
+
+* Run **B2** and **B3**
+* Interpret:
+
+  * `Access denied` → Secrets / credential drift
+  * `timeout` → Security Groups / routing / RDS
+
+Retrieve known-good values from:
+
+* SSM Parameter Store: `/lab/db/*`
+* Secrets Manager: `/<project>/rds/mysql`
+
+---
+
+## Step 4 — Verify Recovery
+
+* Errors drop in **B1**
+* WAF stabilizes (**A6**)
+* Alarm returns to **OK**
+* Smoke test:
+
+```bash
+curl https://app.chewbacca-growl.com/list
+```
+
+---
+
+# Optional — Terraform Saved Queries (Future Enhancement)
+
+CloudWatch Logs Insights **saved queries** can be created using `aws_cloudwatch_query_definition` to make this runbook executable with two clicks.
+
+Example:
+
+```hcl
+resource "aws_cloudwatch_query_definition" "waf_top_actions" {
+  name = "WAF-Top-Actions"
+  log_group_names = ["aws-waf-logs-${var.project}-webacl01"]
+
+  query_string = <<EOF
+fields @timestamp, action
+| stats count() as hits by action
+| sort hits desc
+EOF
+}
+```
+
+Repeat per query for full automation.
+
+---
+
+## Runbook Maturity Level
+
+* ✅ Tier 1: Manual queries
+* ✅ Tier 2: Saved queries
+* 🔜 Tier 3: Athena + S3 log lake
+* 🔜 Tier 4: Automated incident classification
